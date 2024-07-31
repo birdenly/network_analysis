@@ -12,7 +12,7 @@ def load_data():
     df = pd.read_csv(file, header=None, names=["Player_ID", "Game_title", "Behavior", "Hours", "Ignore"], nrows=2500,dtype={'Player_ID': str})
     return df
 
-file = "../steam-200k.csv"
+file = "./steam-200k.csv"
 df = load_data()
 df.drop("Ignore", inplace=True, axis=1)
 
