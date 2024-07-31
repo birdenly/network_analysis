@@ -1,5 +1,5 @@
 ### Network analysis study repo
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://networkanalysis-jaf5zcto4eavzghpnefbkn.streamlit.app/)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://network-analysis-project.streamlit.app/)
 
 Most used in this repo:
  - Python
