@@ -14,9 +14,14 @@ def close_interaction():
 def load_data():
     df = pd.read_csv(file, header=None, names=["Player_ID", "Game_title", "Behavior", "Hours", "Ignore"], nrows=2500,dtype={'Player_ID': str})
     return df
+@st.cache_data #Apenas para mostrar antes/depois
+def unfiltred_load_data():
+    df = pd.read_csv(file, header=None, names=["Player_ID", "Game_title", "Behavior", "Hours", "Ignore"],dtype={'Player_ID': str})
+    return df
 
 file = "./steam-200k.csv"
 df = load_data()
+df_un = unfiltred_load_data()
 df.drop("Ignore", inplace=True, axis=1)
 
 # Ira analisar o df e ira agrupar por Player_ID e Game_title, e ira pegar o valor de "play" se existir, se nao ira pegar o valor de "purchase". basicamente resumindo o df
@@ -233,7 +238,7 @@ if st.sidebar.button('Show main concepts about network analysis'):
 if st.sidebar.button('Show unfiltred dataset'):
     close_interaction()
     
-    st.write(df_filtred)
+    st.write(df_un)
 
 if st.sidebar.button('Information about the columns'):
     close_interaction()
