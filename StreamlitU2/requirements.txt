@@ -6,3 +6,4 @@ pandas==1.5.3
 seaborn==0.13.2
 streamlit==1.18.1
 streamlit_pandas==0.0.9
+powerlaw

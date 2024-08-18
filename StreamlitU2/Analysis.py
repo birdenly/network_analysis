@@ -4,6 +4,9 @@ import pandas as pd
 import seaborn as sns
 import streamlit_pandas as sp
 from adjustText import adjust_text
+import numpy as np
+import powerlaw
+from networkx.algorithms import community
 
 import matplotlib.pyplot as plt
 
@@ -47,7 +50,7 @@ if st.sidebar.button('Show main concepts about network analysis'):
 
     st.write('--------')
     st.write("Choose a Tab below to show one concept about network analysis using the Steam dataset") 
-    tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12= st.tabs([
+    tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12,tab13= st.tabs([
     "Adjacency Matrix",
     "Diameter",
     "Periphery",
@@ -59,7 +62,8 @@ if st.sidebar.button('Show main concepts about network analysis'):
     "Closeness Centrality",
     "Betweenness Centrality",
     "Eigenvector Centrality",
-    "General Network Assortativity"
+    "General Network Assortativity",
+    "Communities"
 ])
 
     with tab1:
@@ -72,9 +76,11 @@ if st.sidebar.button('Show main concepts about network analysis'):
 
     with tab2:
         st.header("Diameter")
+        st.write("O diametro de um grafo é o maior caminho dos caminhos mais curto entre dois nós no graph")
         st.write('Por ser um graph bipartido é dificil ele ser conectado, portanto não se pode achar o diametro dele.')
         st.write('Caso networkx.diameter(B) seja usado, ira retornar o Erro: Found infinite path length because the graph is not connected')
         st.write('Por isso, iremos calcular o diametro de cada componente conectado')
+        st.write("-------------------")
         connected_components = list(nx.connected_components(B))
 
         max_diameter = []
@@ -85,13 +91,17 @@ if st.sidebar.button('Show main concepts about network analysis'):
                 max_diameter.append(diameter)
 
         for i, diameter in enumerate(max_diameter, 1):
-            st.write(f"Diametro {i}: {diameter}")
+            st.write("Componectado conectado ", i)
+            st.write("Diametro: ", diameter)
+            st.write("-------------------")
 
     with tab3:
         st.header("Periphery")
+        st.write("A periferia de um graph é o subgrafo de nós que tem a maior excentricidade")
         st.write('Por ser um graph bipartido é dificil ele ser conectado, portanto não se pode achar a periferia dele.')
         st.write('Caso networkx.periphery(B) seja usado, ira retornar o Erro: Found infinite path length because the graph is not connected')
-        st.write('Por isso, iremos calcular o diametro de cada componente conectado')
+        st.write('Por isso, iremos calcular a periferia de cada componente conectado')
+        st.write("-------------------")
         connected_components = list(nx.connected_components(B))
 
         peripheries = []
@@ -102,7 +112,9 @@ if st.sidebar.button('Show main concepts about network analysis'):
                 peripheries.append(periphery)
 
         for i, periphery in enumerate(peripheries, 1):
-            st.write(f"Periferia {i}: {periphery}")
+            st.write("Componectado conectado ", i)
+            st.write("Periferia: ", periphery)
+            st.write("-------------------")
 
     with tab4:
         degrees = dict(nx.degree(B))
@@ -111,26 +123,48 @@ if st.sidebar.button('Show main concepts about network analysis'):
         fig, ax = plt.subplots(figsize=(15, 10))
         sns.histplot(degrees, bins=30, kde=True)
         plt.title('Histograma de distribuição empírica de grau')
-        plt.xlabel('Grau')
+        plt.xlabel('degree')
         plt.ylabel('Frequencia')
         st.pyplot(fig)
 
+        degree_values = np.array(list(degrees.values()))
+
+        fit = powerlaw.Fit(degree_values, discrete=True)
+
+        st.header("Empirical Degree Distribution with power law")
+        st.write("https://youtu.be/imY4ap0bg1U?t=118")
+        st.write("De acordo com o video acima a probabilidade de um no ter grau k é proporcional a k^-alpha. Onde **alpha**é o expoente da lei de potencia.")
+        st.write("No video é mostrado que **alpha** tende a ser 2 < **alpha** <  3. **alpha** sendo maior que 2 significa que maior parte dos nos tem poucas conexões e alpha sendo menor que 3 significa que existe nos nos tem muitas conexões (HUBS)")
+        st.write("O **alpha** da Distribuição Empírica de Grau com Lei de Potência da steam é 1.87, então o **alpha** apenas atende a condição de **alpha** < 3, portanto existe muitos nos com muitas conexões (HUBS)")
+        fig, ax = plt.subplots(figsize=(15, 10))
+        powerlaw.plot_pdf(degree_values, ax=ax, color='b', marker='o', label='Empirical Data')
+        fit.power_law.plot_pdf(ax=ax, color='r', linestyle='--', label=f'Alpha={fit.alpha:.2f}')
+        plt.title('Histograma de Distribuição Empírica de Grau com Lei de Potência')
+        plt.xlabel('degree')
+        plt.ylabel('Frequência')
+        plt.legend()
+        st.pyplot(fig)
+
+        st.write(f"Expoente (alpha): {fit.alpha:.2f}")
+
     with tab5:
-        st.header("Local Clustering Coefficient for the first 35 players")
+        st.header("Local Clustering Coefficient for the 35 highest players")
+        st.write('O coeficiente de clustering local é mede o grau com que o nó de um grafo tende a agrupar-se')
         st.write('É necessario criar novo grafico, utilizando a função weighted_projected_graph, de players que serão conectados caso se liguem ao mesmo jogo, necessario já que graficos bipartidos normalmente tem clustering 0')
         st.write("Maior clustering = joga jogos mais populares")
         player_projection = nx.bipartite.weighted_projected_graph(B, players)
 
         clustering_coeffs = nx.clustering(player_projection, weight='weight')
 
-        selected_nodes = list(clustering_coeffs.keys())[:35]
+        sorted_coeffs = sorted(clustering_coeffs.items(), key=lambda x: x[1], reverse=True)
+        selected_nodes = [node for node, _ in sorted_coeffs[:35]]
         selected_clustering_coeffs = {node: clustering_coeffs[node] for node in selected_nodes}
 
         df_clustering = pd.DataFrame(list(selected_clustering_coeffs.items()), columns=['nos', 'clustering'])
 
         fig, ax = plt.subplots(figsize=(15, 10))
         sns.barplot(x='nos', y='clustering', data=df_clustering)
-        plt.title('Coeficiente de clustering para os primeiros 35 jogadores')
+        plt.title('Coeficiente de clustering para os 35 jogadores com maior coeficiente')
         plt.xlabel('Nos')
         plt.ylabel('Coeficiente de clustering')
         plt.xticks(rotation=45)
@@ -138,16 +172,21 @@ if st.sidebar.button('Show main concepts about network analysis'):
 
     with tab6:
         st.header("Global Clustering Coefficient")
-        st.write('É necessario criar novo grafico, utilizando a função weighted_projected_graph, de players que serão conectados caso se liguem ao mesmo jogo, necessario já que graficos bipartidos normalmente tem clustering 0')
+        st.write('O coeficiente de clustering global é mede o grau com que os nós de um grafo tendem a agrupar-se')
+        st.write('É necessario criar um novo grafico, utilizando a função weighted_projected_graph, de players que serão conectados caso se liguem ao mesmo jogo, necessario já que graficos bipartidos normalmente tem clustering 0')
         st.write("Maior clustering = joga jogos mais populares")
         player_projection = nx.bipartite.weighted_projected_graph(B, players)
 
         global_clustering = nx.transitivity(player_projection)
 
         st.write(f"Coeficiente de clustering global: {global_clustering}")
+        st.write("-------------------")
         
-        for i in nx.clustering(player_projection).values():
-            st.write(i)
+        clustering_coefficients = nx.clustering(player_projection)
+        for player, coefficient in clustering_coefficients.items():
+            st.write("Player: ",player)
+            st.write("Clustering Coefficient: ",coefficient)
+            st.write("-------------------")
 
     with tab7:
         st.header("Strongly and Weakly Connected Components")
@@ -159,6 +198,7 @@ if st.sidebar.button('Show main concepts about network analysis'):
         st.write("networkx.is_weakly_connected(G) ERROR: not implemented for undirected type")
     with tab8:
         st.header("Degree Centrality")
+        st.write('Degree centrality é o numero de conexões que um nó tem.')
         st.write('Degree centrality de todos os nos, apenas de jogadores e apenas de jogos:')
 
         degree_centrality = nx.degree_centrality(B)
@@ -195,6 +235,8 @@ if st.sidebar.button('Show main concepts about network analysis'):
         st.pyplot(plt)
     with tab9:
         st.header("Closeness Centrality")
+        st.write("Closeness Centrality é a média da menor distância de um nó para todos os outros nós.")
+        st.write("Closeness Centrality de todos os nos, apenas de jogadores e apenas de jogos:")
         closeness_centrality = nx.closeness_centrality(B)
 
         df_closeness = pd.DataFrame(list(closeness_centrality.items()), columns=['Node', 'Closeness Centrality'])
@@ -205,8 +247,31 @@ if st.sidebar.button('Show main concepts about network analysis'):
         plt.xlabel('Closeness Centrality')
         plt.ylabel('frequencia')
         st.pyplot(plt)
+
+        player_centrality = {node: centrality for node, centrality in closeness_centrality.items() if node in players} #apenas players
+        game_centrality = {node: centrality for node, centrality in closeness_centrality.items() if node in games} #apenas games
+
+        df_player_centrality = pd.DataFrame(list(player_centrality.items()), columns=['Player_ID', 'Closeness Centrality'])
+        df_game_centrality = pd.DataFrame(list(game_centrality.items()), columns=['Game_title', 'Closeness Centrality'])
+
+        plt.figure(figsize=(12, 8))
+        sns.histplot(df_player_centrality['Closeness Centrality'], bins=30, kde=True)
+        plt.title('Closeness Centrality for Players')
+        plt.xlabel('Closeness Centrality')
+        plt.ylabel('frequencia')
+        plt.show()
+        st.pyplot(plt)
+
+        plt.figure(figsize=(12, 8))
+        sns.histplot(df_game_centrality['Closeness Centrality'], bins=30, kde=True)
+        plt.title('Closeness Centrality for Games')
+        plt.xlabel('Closeness Centrality')
+        plt.ylabel('frequencia')
+        plt.show()
+        st.pyplot(plt)
     with tab10:
         st.header("Betweenness Centrality")
+        st.write("Betweenness Centrality é a quantidade de vezes que o nó é o mais curto caminho entre dois outros nós.")
         betweenness_centrality = nx.betweenness_centrality(B)
 
         df_between = pd.DataFrame(list(betweenness_centrality.items()), columns=['Node', 'Betweenness Centrality'])
@@ -217,8 +282,32 @@ if st.sidebar.button('Show main concepts about network analysis'):
         plt.xlabel('Betweenness Centrality')
         plt.ylabel('frequencia')
         st.pyplot(plt)
+
+        
+        player_centrality = {node: centrality for node, centrality in betweenness_centrality.items() if node in players} #apenas players
+        game_centrality = {node: centrality for node, centrality in betweenness_centrality.items() if node in games} #apenas games
+
+        df_player_centrality = pd.DataFrame(list(player_centrality.items()), columns=['Player_ID', 'Betweenness Centrality'])
+        df_game_centrality = pd.DataFrame(list(game_centrality.items()), columns=['Game_title', 'Betweenness Centrality'])
+
+        plt.figure(figsize=(12, 8))
+        sns.histplot(df_player_centrality['Betweenness Centrality'], bins=30, kde=True)
+        plt.title('Betweenness Centrality for Players')
+        plt.xlabel('Betweenness Centrality')
+        plt.ylabel('frequencia')
+        plt.show()
+        st.pyplot(plt)
+
+        plt.figure(figsize=(12, 8))
+        sns.histplot(df_game_centrality['Betweenness Centrality'], bins=30, kde=True)
+        plt.title('Betweenness Centrality for Games')
+        plt.xlabel('Betweenness Centrality')
+        plt.ylabel('frequencia')
+        plt.show()
+        st.pyplot(plt)
     with tab11:
         st.header("Eigenvector Centrality")
+        st.write("Eigenvector Centrality é a medida de quão influente um nó é em uma rede.")
         Eigenvector_Centrality = nx.eigenvector_centrality(B,max_iter=2500, tol=1e-08)
 
         df_between = pd.DataFrame(list(Eigenvector_Centrality.items()), columns=['Node', 'Eigenvector Centrality'])
@@ -229,11 +318,55 @@ if st.sidebar.button('Show main concepts about network analysis'):
         plt.xlabel('Eigenvector Centrality')
         plt.ylabel('frequencia')
         st.pyplot(plt)
+
+        player_centrality = {node: centrality for node, centrality in Eigenvector_Centrality.items() if node in players} #apenas players
+        game_centrality = {node: centrality for node, centrality in Eigenvector_Centrality.items() if node in games} #apenas games
+
+        df_player_centrality = pd.DataFrame(list(player_centrality.items()), columns=['Player_ID', 'Eigenvector Centrality'])
+        df_game_centrality = pd.DataFrame(list(game_centrality.items()), columns=['Game_title', 'Eigenvector Centrality'])
+
+        plt.figure(figsize=(12, 8))
+        sns.histplot(df_player_centrality['Eigenvector Centrality'], bins=30, kde=True)
+        plt.title('Eigenvector Centrality for Players')
+        plt.xlabel('Eigenvector Centrality')
+        plt.ylabel('frequencia')
+        plt.show()
+        st.pyplot(plt)
+
+        plt.figure(figsize=(12, 8))
+        sns.histplot(df_game_centrality['Eigenvector Centrality'], bins=30, kde=True)
+        plt.title('Eigenvector Centrality for Games')
+        plt.xlabel('Eigenvector Centrality')
+        plt.ylabel('frequencia')
+        plt.show()
+        st.pyplot(plt)
     with tab12:
         st.header("General Network Assortativity")
+        st.write("A Assortatividade de um grafo é uma medida de tendência de nós com graus semelhantes se conectarem uns aos outros.")
+        st.write("A Assortatividade vai de -1 a 1. No caso do grafo da steam ela é -0.4, que significa que a rede é disassortativa, ou seja, nós com graus diferentes tendem a se conectar.")
         degree_assortativity = nx.degree_assortativity_coefficient(B)
         st.write("Assortatividade geral da rede: ",degree_assortativity)
+    with tab13:
+        st.header("Communities")
+        st.write("Comunidades são subgrafos densamente conectados em um grafo.")
+        st.write("Inves de analisar a comunidade com todos os nos (jogadores e jogos juntos), é necessario criar um novo grafico, utilizando a função weighted_projected_graph, de jogadores que serão conectados caso se liguem ao mesmo jogo")
+        player_projection = nx.bipartite.weighted_projected_graph(B, players)
 
+        communities = community.greedy_modularity_communities(player_projection)
+        player_projection = nx.bipartite.weighted_projected_graph(B, players)
+        communities = community.greedy_modularity_communities(player_projection)
+
+        plt.figure(figsize=(10, 10))
+
+        color_map = []
+        for node in player_projection:
+            for i, community in enumerate(communities):
+                if node in community:
+                    color_map.append(i)
+                    break
+        pos = nx.kamada_kawai_layout(player_projection)
+        nx.draw(player_projection, pos, node_color=color_map,with_labels=True)
+        st.pyplot(plt)
 
 if st.sidebar.button('Show unfiltred dataset'):
     close_interaction()
@@ -272,26 +405,7 @@ if st.sidebar.button('Show a sample of the complete graph'):
 
     plt.figure(figsize=(20, 15))
 
-    pos = nx.spring_layout(G, k=0.3)
-
-    nx.draw_networkx_nodes(G, pos, nodelist=players, node_color='lightblue', node_size=50, label='Players')
-    nx.draw_networkx_nodes(G, pos, nodelist=games, node_color='lightgreen', node_size=50, label='Games')
-
-    nx.draw_networkx_edges(G, pos, alpha=0.5)
-
-    #nome azul para os steamIds (jogadores) se nao verde
-    texts = []
-    for node, (x, y) in pos.items():
-        if node in players:
-            texts.append(plt.text(x, y, str(node), fontsize=8, color='blue'))
-        else:
-            texts.append(plt.text(x, y, node, fontsize=8, color='green'))
-
-    adjust_text(texts, arrowprops=dict(arrowstyle='-', color='gray', lw=0.5))
-
-    plt.legend(['Players', 'Games'], loc='upper right')
-
-    plt.title('Bipartite Graph of Players and Games')
+    plt.title('Graph of Players and Games (spring_layout)')
     fig, ax = plt.subplots(figsize=(15, 10))
     pos = nx.spring_layout(G, k=0.2)
     nx.draw_networkx_nodes(G, pos, nodelist=players, node_color='lightblue', node_size=50, label='Players')
@@ -306,6 +420,31 @@ if st.sidebar.button('Show a sample of the complete graph'):
     adjust_text(texts, arrowprops=dict(arrowstyle='-', color='gray', lw=0.5))
     plt.legend(['Players', 'Games'], loc='upper right')
     plt.title('Bipartite Graph of Players and Games')
+    st.pyplot(fig)
+
+
+    plt.figure(figsize=(20, 15))
+    plt.title('Graph of Players and Games (bipartite_layout)')
+
+    fig, ax = plt.subplots(figsize=(15, 10))
+    pos = nx.bipartite_layout(G, players,scale=2, center=(0,0))
+
+    nx.draw_networkx_nodes(G, pos, nodelist=players, node_color='lightblue', node_size=50, label='Players')
+    nx.draw_networkx_nodes(G, pos, nodelist=games, node_color='lightgreen', node_size=50, label='Games')
+    nx.draw_networkx_edges(G, pos, alpha=0.5)
+
+    texts = []
+    for node, (x, y) in pos.items():
+        if node in players:
+            texts.append(plt.text(x, y, str(node), fontsize=8, color='blue'))
+        else:
+            texts.append(plt.text(x, y, node, fontsize=8, color='green'))
+
+    adjust_text(texts, arrowprops=dict(arrowstyle='-', color='gray', lw=0.5))
+
+    plt.legend(['Players', 'Games'], loc='upper right')
+    plt.title('Bipartite Graph of Players and Games')
+
     st.pyplot(fig)
 
 #manter a pagina aberta

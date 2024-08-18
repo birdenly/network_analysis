@@ -10,3 +10,18 @@ Most used in this repo:
  - Streamlit
 
 [DataSet used](https://www.kaggle.com/datasets/tamber/steam-video-games?resource=download)
+
+# StreamLit
+### How to run it locally
+
+- Clone the Git repo
+
+```
+$ cd StreamlitU2
+```
+```
+$ pip install -r requirements.txt
+```
+```
+$ streamlit run Analysis.py
+```
