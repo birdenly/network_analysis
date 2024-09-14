@@ -3,6 +3,7 @@
 
 Most used in this repo:
  - Python
+ - SQL
  - NetworkX
  - matplotlib.pyplot
  - Seaborn
